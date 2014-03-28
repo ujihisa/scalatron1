@@ -1,5 +1,9 @@
 import scala.util.Random
 
+/**
+ * The folowing all classes are just copy from Reference bot
+ */
+
 case class XY(x: Int, y: Int) {
     override def toString = x + ":" + y
 
