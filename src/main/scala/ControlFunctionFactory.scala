@@ -94,7 +94,10 @@ case class Bot() {
 
     val scores: Seq[(XY, Double)] = for { xy <- xys } yield {
       val v1: Int = aroundScore(params.view, xy)
-      val v2: Double = history.view.zipWithIndex.filter { case (e, _) => e == xy }.map { case (_, i) => i - 1000 }.sum
+      val v2: Double = history.view.zipWithIndex.
+        filter { case (e, _) => e == xy }.
+        map { case (_, i) => - Math.pow(i - 1000, 2) / Math.pow(1000, 2) }.
+        sum
       val v3: Double = enemies.map {
         case (c, idx) =>
           val enemyXY = params.view.relPosFromIndex(idx)
@@ -113,7 +116,7 @@ case class Bot() {
       // random weight for safe spot
       val v5 = 0 // TODO if (util.Random.nextInt(100) == 0) 1 else 0
 
-      (xy, 2.0 * v1 + 0.0005 * v2 + 1.0 * v3 + 1.0 * v4 + 1.0 * v5)
+      (xy, 2.0 * v1 + 1.0 * v2 + 1.0 * v3 + 1.0 * v4 + 1.0 * v5)
     }
     // TODO no need for granularity
     val (_, bests): (Double, Seq[(XY, Double)]) = scores.
