@@ -2,11 +2,11 @@
 import scala.util.Random
 
 case class InputParam(
-  name: String, collision: Option[String], generation: Long, energy: Long, time: Long, slaves: Long, view: View) {
+  name: String, collision: Option[String], generation: Long, energy: Long, time: Long, slaves: Option[Long], view: View) {
   
   // just to ignore view
   override def toString =
-    """InputParam{name: "%s", collision: "%s", generation: %d, energy: %d, time: %d, slaves: %d}""" format (name, collision, generation, energy, time, slaves)
+    """InputParam{name: "%s", collision: "%s", generation: %d, energy: %d, time: %d, slaves: %s}""" format (name, collision, generation, energy, time, slaves)
 }
 
 private object ControlFunctionFactory {
@@ -42,13 +42,15 @@ class ControlFunctionFactory {
           keyValuePairs("generation").toLong,
           keyValuePairs("energy").toLong,
           keyValuePairs("time").toLong,
-          keyValuePairs("slaves").toLong,
+          keyValuePairs.get("slaves").map(_.toLong),
           View(keyValuePairs("view"))))
       }
       case ("Welcome", _) =>
         bot = Some(Bot())
         ""
-      case _ => "" // OK
+      case e =>
+        println('e, e)
+        "" // OK
     }
   }
 }
@@ -202,7 +204,7 @@ case class View(cells: String) {
     val size = math.sqrt(cells.length).toInt
     val center = XY(size / 2, size / 2)
 
-    def apply(relPos: XY) = cellAtRelPos(relPos)
+    // def apply(relPos: XY) = cellAtRelPos(relPos)
 
     def indexFromAbsPos(absPos: XY) = absPos.x + absPos.y * size
     def absPosFromIndex(index: Int) = XY(index % size, index / size)
@@ -225,10 +227,65 @@ case class View(cells: String) {
     }
 }
 
+private object Bot {
+  def aroundScore(view: View, xy: XY): Int = {
+    view.cellAtRelPos(xy) match {
+      case '?' | 'W' | 'm' | 's' | 'p' | 'b' => -1
+      case 'P' | 'B' => 1
+      case '_' | 'M' | 'S' => 0
+      case _ => println('omg); 0
+    }
+  }
+}
+
 case class Bot() {
+  import Bot._
+  var history = collection.immutable.Queue[XY]()
+
   def react(params: InputParam): String = {
-    println("---------------------------------------------------------------")
-    println(params)
-    "Move(direction=1:1)"
+    history :+= params.view.center
+    if (history.size > 1000) {
+      history = history.tail
+    }
+
+    val xys = for {
+      x <- -1 to 1
+      y <- -1 to 1
+    } yield XY(x, y)
+
+    val enemies = params.view.cells.view.zipWithIndex.filter {
+      case ('m' | 's' | 'p' | 'b', _) => true
+      case _ => false
+    }
+    val goods = params.view.cells.view.zipWithIndex.filter {
+      case ('P' | 'B', _) => true
+      case _ => false
+    }
+
+    val nearMap: Seq[(XY, Double)] = for { xy <- xys } yield {
+      val v1: Int = aroundScore(params.view, xy)
+      val v2: Int = history.filter(_ == xy).size
+      val v3: Double = enemies.map {
+        case (c, idx) =>
+          val enemyXY = params.view.relPosFromIndex(idx)
+          -1.0 / (xy.distanceTo(enemyXY) + 1)
+        case _ => println('omgomg); 0
+      }.sum
+      // almost dead copy of above..
+      val v4: Double = goods.map {
+        case (c, idx) =>
+          val goodXY = params.view.relPosFromIndex(idx)
+          1.0 / (xy.distanceTo(goodXY) + 1)
+        case _ => println('omgomg); 0
+      }.sum
+
+      // println(v1, v2, v3, v4)
+      (xy, 1.0 * v1 + 0.1 * v2 + 1.0 * v3 + 1.0 * v4)
+    }
+    val (_, bests): (Double, Seq[(XY, Double)]) = nearMap.
+      groupBy { case (xy: XY, v: Double) => v }.
+      maxBy { case (v: Double, x: Seq[(XY, Double)]) => v }
+    val (xy: XY, _) = bests(util.Random.nextInt(bests.size))
+    "Move(direction=%s)".format(xy)
   }
 }
