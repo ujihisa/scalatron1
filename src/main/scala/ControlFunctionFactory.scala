@@ -43,7 +43,7 @@ class ControlFunctionFactory {
           keyValuePairs("energy").toLong,
           keyValuePairs("time").toLong,
           keyValuePairs.get("slaves").map(_.toLong),
-          View(keyValuePairs("view"))))
+          View(keyValuePairs("view")))) + "|Status(text=uji-1.0)"
       }
       case ("Welcome", _) =>
         bot = Some(Bot())
@@ -68,10 +68,11 @@ private object Bot {
 
 case class Bot() {
   import Bot._
-  var history = collection.immutable.Queue[XY]()
+  var history = Vector[XY]() // collection.immutable.Queue[XY]()
+  var current = XY(0, 0)
 
   def react(params: InputParam): String = {
-    history :+= params.view.center
+    history :+= current
     if (history.size > 1000) {
       history = history.tail
     }
@@ -89,34 +90,37 @@ case class Bot() {
       case ('P' | 'B', _) => true
       case _ => false
     }
+    // println('enemies, enemies.size, 'goods, goods.size)
 
     val scores: Seq[(XY, Double)] = for { xy <- xys } yield {
       val v1: Int = aroundScore(params.view, xy)
-      val v2: Double = history.view.zipWithIndex.filter { case (e, _) => e == xy }.map { case (_, i) => Math.pow(1000, 2) - Math.pow(i, 2) }.sum
+      val v2: Double = history.view.zipWithIndex.filter { case (e, _) => e == xy }.map { case (_, i) => i - 1000 }.sum
       val v3: Double = enemies.map {
         case (c, idx) =>
           val enemyXY = params.view.relPosFromIndex(idx)
-          -1.0 / (xy.distanceTo(enemyXY) + 1)
+          // TODO Don't depend on direct distance but path distance
+          -1.0 / (xy.stepsTo(enemyXY) + 1)
         case _ => println('omgomg); 0
       }.sum
       // almost dead copy of above..
       val v4: Double = goods.map {
         case (c, idx) =>
           val goodXY = params.view.relPosFromIndex(idx)
-          1.0 / (xy.distanceTo(goodXY) + 1)
+          // TODO Don't depend on direct distance but path distance
+          1.0 / (xy.stepsTo(goodXY) + 1)
         case _ => println('omgomg); 0
       }.sum
       // random weight for safe spot
       val v5 = 0 // TODO if (util.Random.nextInt(100) == 0) 1 else 0
 
-      // println(v1, v2, v3, v4)
-      (xy, 1.0 * v1 + 0.001 * v2 + 1.0 * v3 + 1.0 * v4 + 1.0 * v5)
+      (xy, 2.0 * v1 + 0.0005 * v2 + 1.0 * v3 + 1.0 * v4 + 1.0 * v5)
     }
     // TODO no need for granularity
     val (_, bests): (Double, Seq[(XY, Double)]) = scores.
       groupBy { case (xy: XY, v: Double) => v }.
       maxBy { case (v: Double, x: Seq[(XY, Double)]) => v }
     val (xy: XY, _) = bests(util.Random.nextInt(bests.size))
+    current = current + xy
     "Move(direction=%s)".format(xy)
   }
 }
