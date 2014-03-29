@@ -68,62 +68,45 @@ private object Bot {
 
 case class Bot() {
   import Bot._
-  var history = Vector[XY]() // collection.immutable.Queue[XY]()
-  var current = XY(0, 0)
 
   def react(params: InputParam): String = {
-    history :+= current
-    if (history.size > 1000) {
-      history = history.tail
+    try {
+      val pList = params.view.cells.view.zipWithIndex.filter { case (c, idx) => c == 'P' }
+      // val pDist = pList.map { case(c, idx) =>
+      //   val coordinate = view.params.relPosFromIndex(idx)
+      //   Math.sqrt(Math.pow(coordinate.x, 2) + Math.pow(coordinate.y, 2))
+      // }
+      if (!pList.isEmpty) {
+        val (_, idx) = pList.minBy { case (c, idx) => 
+          val coordinate = params.view.relPosFromIndex(idx)
+          Math.sqrt(Math.pow(coordinate.x, 2) + Math.pow(coordinate.y, 2))
+        }
+        val coordinate = params.view.relPosFromIndex(idx)
+        val (x, y) = (
+          coordinate.x match {
+            case 0 => 0
+            case x if x < 0 => -1
+            case _ => 1
+          },
+          coordinate.y match {
+            case 0 => 0
+            case y if y < 0 => -1
+            case _ => 1
+          }
+        )
+        val xy = XY(x, y) 
+        println('xy, xy)
+        
+        // val xy = XY(1, 1)
+        "Move(direction=%s)".format(xy)
+      } else {
+        val xy = XY(0, 0)
+        "Move(direction%s)".format(xy)
+      }
+    } catch {
+      case e =>
+        println(e)
+        ""
     }
-
-    val xys = for {
-      x <- -1 to 1
-      y <- -1 to 1
-    } yield XY(x, y)
-
-    val enemies = params.view.cells.view.zipWithIndex.filter {
-      case ('m' | 's' | 'p' | 'b', _) => true
-      case _ => false
-    }
-    val goods = params.view.cells.view.zipWithIndex.filter {
-      case ('P' | 'B', _) => true
-      case _ => false
-    }
-    // println('enemies, enemies.size, 'goods, goods.size)
-
-    val scores: Seq[(XY, Double)] = for { xy <- xys } yield {
-      val v1: Int = aroundScore(params.view, xy)
-      val v2: Double = history.view.zipWithIndex.
-        filter { case (e, _) => e == xy }.
-        map { case (_, i) => - Math.pow(i - 1000, 2) / Math.pow(1000, 2) }.
-        sum
-      val v3: Double = enemies.map {
-        case (c, idx) =>
-          val enemyXY = params.view.relPosFromIndex(idx)
-          // TODO Don't depend on direct distance but path distance
-          -1.0 / (xy.stepsTo(enemyXY) + 1)
-        case _ => println('omgomg); 0
-      }.sum
-      // almost dead copy of above..
-      val v4: Double = goods.map {
-        case (c, idx) =>
-          val goodXY = params.view.relPosFromIndex(idx)
-          // TODO Don't depend on direct distance but path distance
-          1.0 / (xy.stepsTo(goodXY) + 1)
-        case _ => println('omgomg); 0
-      }.sum
-      // random weight for safe spot
-      val v5 = 0 // TODO if (util.Random.nextInt(100) == 0) 1 else 0
-
-      (xy, 2.0 * v1 + 1.0 * v2 + 1.0 * v3 + 1.0 * v4 + 1.0 * v5)
-    }
-    // TODO no need for granularity
-    val (_, bests): (Double, Seq[(XY, Double)]) = scores.
-      groupBy { case (xy: XY, v: Double) => v }.
-      maxBy { case (v: Double, x: Seq[(XY, Double)]) => v }
-    val (xy: XY, _) = bests(util.Random.nextInt(bests.size))
-    current = current + xy
-    "Move(direction=%s)".format(xy)
   }
 }
