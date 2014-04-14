@@ -88,8 +88,8 @@ case class Bot() {
 
     val unitPreference = params.view.cells.view.zipWithIndex.map {
       case ('P' | 'B', i) => (2, i)
-      case ('m' | 's' | 'p' | 'b', i) => (-2, i)
-      case ('W', i) => (-1, i)
+      case ('m' | 's', i) => (-2, i)
+      case ('W' | 'p' | 'b', i) => (-1, i)
       case (_, i) => (0, i) // ???
     }
 
@@ -109,7 +109,7 @@ case class Bot() {
 
       val v5 = history.reverse.take(5).distinct.map(-xy.distanceTo(_)).sum / 5.0
 
-      (xy, 2.0 * v1 + 1.0 * v2 + 1.0 * v3 + 0.05 * v4 + 0.3 * v5)
+      (xy, 2.0 * v1 + 1.0 * v2 + 1.5 * v3 + 0.05 * v4 + 0.2 * v5)
     }
     // TODO no need for granularity
     val (_, bests): (Double, Seq[(XY, Double)]) = scores.
