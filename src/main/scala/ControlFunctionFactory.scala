@@ -48,6 +48,7 @@ class ControlFunctionFactory {
       case ("Welcome", _) =>
         bot = Some(Bot())
         ""
+      case ("Goodbye", _) => ""
       case e =>
         println('e, e)
         "" // OK
@@ -59,8 +60,8 @@ private object Bot {
   def aroundScore(view: View, xy: XY): Int = {
     view.cellAtRelPos(xy) match {
       // 'W' is already filtered
-      case '?' | 'm' | 's' | 'p' | 'b' => -1
       case 'P' | 'B' => 1
+      case '?' | 'm' | 's' | 'p' | 'b' => -1
       case '_' | 'M' | 'S' => 0
       case _ => println('omg); 0
     }
@@ -86,8 +87,9 @@ case class Bot() {
     } yield xy
 
     val unitPreference = params.view.cells.view.zipWithIndex.map {
-      case ('P' | 'B', i) => (1, i)
-      case ('m' | 's' | 'p' | 'b', i) => (-1, i)
+      case ('P' | 'B', i) => (2, i)
+      case ('m' | 's' | 'p' | 'b', i) => (-2, i)
+      case ('W', i) => (-1, i)
       case (_, i) => (0, i) // ???
     }
 
@@ -105,9 +107,9 @@ case class Bot() {
       }.sum
       val v4 = if (util.Random.nextInt(100) == 0) 1 else 0
 
-      val v5 = history.take(10).distinct.map(xy.stepsTo(_)).sum / 10.0
+      val v5 = history.reverse.take(5).distinct.map(-xy.distanceTo(_)).sum / 5.0
 
-      (xy, 2.0 * v1 + 1.0 * v2 + 2.0 * v3 + 0.1 * v4 + 0.5 * v5)
+      (xy, 2.0 * v1 + 1.0 * v2 + 1.0 * v3 + 0.05 * v4 + 0.3 * v5)
     }
     // TODO no need for granularity
     val (_, bests): (Double, Seq[(XY, Double)]) = scores.
