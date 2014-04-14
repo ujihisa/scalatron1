@@ -43,7 +43,7 @@ class ControlFunctionFactory {
           keyValuePairs("energy").toLong,
           keyValuePairs("time").toLong,
           keyValuePairs.get("slaves").map(_.toLong),
-          View(keyValuePairs("view")))) + "|Status(text=uji-1.0)"
+          View(keyValuePairs("view")))) + "|Status(text=uji-2.0)"
       }
       case ("Welcome", _) =>
         bot = Some(Bot())
@@ -58,7 +58,8 @@ class ControlFunctionFactory {
 private object Bot {
   def aroundScore(view: View, xy: XY): Int = {
     view.cellAtRelPos(xy) match {
-      case '?' | 'W' | 'm' | 's' | 'p' | 'b' => -1
+      // 'W' is already filtered
+      case '?' | 'm' | 's' | 'p' | 'b' => -1
       case 'P' | 'B' => 1
       case '_' | 'M' | 'S' => 0
       case _ => println('omg); 0
@@ -80,17 +81,15 @@ case class Bot() {
     val xys = for {
       x <- -1 to 1
       y <- -1 to 1
-    } yield XY(x, y)
+      val xy = XY(x, y)
+      if params.view.cellAtRelPos(xy) != 'W'
+    } yield xy
 
-    val enemies = params.view.cells.view.zipWithIndex.filter {
-      case ('m' | 's' | 'p' | 'b', _) => true
-      case _ => false
+    val unitPreference = params.view.cells.view.zipWithIndex.map {
+      case ('P' | 'B', i) => (1, i)
+      case ('m' | 's' | 'p' | 'b', i) => (-1, i)
+      case (_, i) => (0, i) // ???
     }
-    val goods = params.view.cells.view.zipWithIndex.filter {
-      case ('P' | 'B', _) => true
-      case _ => false
-    }
-    // println('enemies, enemies.size, 'goods, goods.size)
 
     val scores: Seq[(XY, Double)] = for { xy <- xys } yield {
       val v1: Int = aroundScore(params.view, xy)
@@ -98,25 +97,17 @@ case class Bot() {
         filter { case (e, _) => e == xy }.
         map { case (_, i) => - Math.pow(i - 1000, 2) / Math.pow(1000, 2) }.
         sum
-      val v3: Double = enemies.map {
+      val v3: Double = unitPreference.map {
         case (c, idx) =>
           val enemyXY = params.view.relPosFromIndex(idx)
-          // TODO Don't depend on direct distance but path distance
-          -1.0 / (xy.stepsTo(enemyXY) + 1)
+          c / (xy.distanceTo(enemyXY) + 1)
         case _ => println('omgomg); 0
       }.sum
-      // almost dead copy of above..
-      val v4: Double = goods.map {
-        case (c, idx) =>
-          val goodXY = params.view.relPosFromIndex(idx)
-          // TODO Don't depend on direct distance but path distance
-          1.0 / (xy.stepsTo(goodXY) + 1)
-        case _ => println('omgomg); 0
-      }.sum
-      // random weight for safe spot
-      val v5 = 0 // TODO if (util.Random.nextInt(100) == 0) 1 else 0
+      val v4 = if (util.Random.nextInt(100) == 0) 1 else 0
 
-      (xy, 2.0 * v1 + 1.0 * v2 + 1.0 * v3 + 1.0 * v4 + 1.0 * v5)
+      val v5 = history.take(10).distinct.map(xy.stepsTo(_)).sum / 10.0
+
+      (xy, 2.0 * v1 + 1.0 * v2 + 2.0 * v3 + 0.1 * v4 + 0.5 * v5)
     }
     // TODO no need for granularity
     val (_, bests): (Double, Seq[(XY, Double)]) = scores.
