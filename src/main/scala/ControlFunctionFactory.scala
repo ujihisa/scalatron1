@@ -43,7 +43,7 @@ class ControlFunctionFactory {
           keyValuePairs("energy").toLong,
           keyValuePairs("time").toLong,
           keyValuePairs.get("slaves").map(_.toLong),
-          View(keyValuePairs("view")))) + "|Status(text=uji-2.0)"
+          View(keyValuePairs("view")))) + "|Status(text=--uji-3.0)"
       }
       case ("Welcome", _) =>
         bot = Some(Bot())
@@ -117,6 +117,9 @@ case class Bot() {
       maxBy { case (v: Double, x: Seq[(XY, Double)]) => v }
     val (xy: XY, _) = bests(util.Random.nextInt(bests.size))
     current = current + xy
-    "Move(direction=%s)".format(xy)
+    if (util.Random.nextInt(10) == 0)
+      "Move(direction=%s)|Spawn(direction=%s,name=--uji,energe=1)".format(xy, xy.negate)
+    else
+      "Move(direction=%s)".format(xy)
   }
 }
